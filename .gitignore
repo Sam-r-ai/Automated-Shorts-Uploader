@@ -1,2 +1,6 @@
 credentials.json
 token.json
+.env
+__pycache__
+youtube_token.json
+last_upload_time.txt

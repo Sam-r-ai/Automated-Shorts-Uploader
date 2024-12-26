@@ -1,4 +1,4 @@
-from selenium import webdriver 
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -71,4 +71,9 @@ if __name__ == "__main__":
     # Step 2: Download the video
     if video_url:
         output_file = input("Enter the output filename (default: instagram_video.mp4): ") or "instagram_video.mp4"
+        
+        # Ensure the output filename ends with .mp4
+        if not output_file.lower().endswith(".mp4"):
+            output_file += ".mp4"
+        
         download_video(video_url, output_file)

@@ -7,7 +7,7 @@ from google.auth.transport.requests import Request
 from IGvideodownload import get_video_url, download_video  # Import functions from IGvideodownload.py
 
 # Define the scope for Gmail API
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+SCOPES = ['https://www.googleapis.com/auth/gmail.modify']  # Changed scope to allow modifications
 
 def authenticate_gmail():
     """Authenticate with Gmail API and return the service object."""
@@ -37,26 +37,45 @@ def check_email(service, sender_email):
         message = service.users().messages().get(userId='me', id=msg_id).execute()
         payload = message['payload']
         headers = payload['headers']
+
+        # Extract subject
         subject = ""
         for header in headers:
             if header['name'] == 'Subject':
                 subject = header['value']
-        # Decode the email body
+
+        # Extract body
         body = ""
         if 'data' in payload['body']:
+            # Direct data in body
             body = base64.urlsafe_b64decode(payload['body']['data']).decode()
         elif 'parts' in payload:
+            # Multipart email
             for part in payload['parts']:
-                if 'data' in part['body']:
+                if part['mimeType'] == "text/plain" and 'data' in part['body']:
                     body = base64.urlsafe_b64decode(part['body']['data']).decode()
+                elif part['mimeType'] == "text/html" and 'data' in part['body']:
+                    html_body = base64.urlsafe_b64decode(part['body']['data']).decode()
+                    # Extract URL from HTML (if needed)
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(html_body, 'html.parser')
+                    links = soup.find_all('a')
+                    for link in links:
+                        if 'instagram.com' in link.get('href', ''):
+                            body = link.get('href')
+                            break
+
+        # Mark as read
+        service.users().messages().modify(userId='me', id=msg_id, body={"removeLabelIds": ["UNREAD"]}).execute()
+
         return subject, body
+
 
 def process_email(subject, body):
     """Extract Instagram URL and download the video."""
-    instagram_url = body.strip()  # Assuming the body contains only the Instagram URL
-    if instagram_url.startswith("https://www.instagram.com"):
-        print(f"Downloading video from: {instagram_url}")
-        video_url = get_video_url(instagram_url)
+    if body and body.startswith("https://www.instagram.com"):
+        print(f"Downloading video from: {body}")
+        video_url = get_video_url(body)
         if video_url:
             download_video(video_url, f"{subject}.mp4")
         else:
@@ -64,12 +83,11 @@ def process_email(subject, body):
     else:
         print("No valid Instagram URL found in the email body.")
 
+
 def main():
-    sender_email = "YOUREMAILHERE"
+    sender_email = "justinferrari91@gmail.com"
     service = authenticate_gmail()
     print("Monitoring for emails...")
-
-    processed_emails = set()  # Track processed email IDs to avoid reprocessing
 
     while True:
         subject, body = check_email(service, sender_email)
