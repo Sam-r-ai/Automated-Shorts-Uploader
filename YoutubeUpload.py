@@ -15,7 +15,10 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Constants
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube"
+]
 LAST_UPLOAD_FILE = "last_upload_time.txt"  # File to store the last upload time
 
 
@@ -50,8 +53,46 @@ def generate_description(video_title):
     return response.choices[0].message.content.strip()
 
 
-def upload_video(youtube, file_path, title, description, tags, scheduled_time):
-    """Upload video to YouTube."""
+def add_to_playlist(youtube, playlist_name, video_id):
+    """Add a video to a specific playlist."""
+    # Get the playlist ID for the given playlist name
+    playlists_response = youtube.playlists().list(
+        part="snippet",
+        mine=True,  # Get playlists belonging to the authenticated user
+        maxResults=50
+    ).execute()
+
+    playlist_id = None
+    for playlist in playlists_response["items"]:
+        if playlist["snippet"]["title"].lower() == playlist_name.lower():
+            playlist_id = playlist["id"]
+            break
+
+    if not playlist_id:
+        print(f"Error: Playlist '{playlist_name}' not found.")
+        return
+
+    # Add the video to the playlist
+    request_body = {
+        "snippet": {
+            "playlistId": playlist_id,
+            "resourceId": {
+                "kind": "youtube#video",
+                "videoId": video_id
+            }
+        }
+    }
+
+    youtube.playlistItems().insert(
+        part="snippet",
+        body=request_body
+    ).execute()
+
+    print(f"Video added to playlist: {playlist_name}")
+
+
+def upload_video(youtube, file_path, title, description, tags, scheduled_time, playlist_name):
+    """Upload video to YouTube and add it to a playlist."""
     print(f"Debug: Attempting to schedule video at {scheduled_time}")  # Debugging scheduled time
 
     request_body = {
@@ -64,7 +105,8 @@ def upload_video(youtube, file_path, title, description, tags, scheduled_time):
         "status": {
             "privacyStatus": "private",  # For testing purposes
             "publishAt": scheduled_time,  # ISO 8601 format
-            "selfDeclaredMadeForKids": False
+            "selfDeclaredMadeForKids": False,
+            "notifySubscribers": False  # Uncheck "Publish to subscriptions feed and notify subscribers"
         }
     }
 
@@ -76,6 +118,9 @@ def upload_video(youtube, file_path, title, description, tags, scheduled_time):
     ).execute()
 
     print(f"Video uploaded successfully. Video ID: {response['id']}")
+
+    # Add the video to the specified playlist
+    add_to_playlist(youtube, playlist_name, response["id"])
 
 
 def read_last_upload_time():
@@ -98,8 +143,8 @@ def calculate_next_upload_time(last_upload_time):
     """Calculate the next upload time in 75-minute increments."""
     now = datetime.now(timezone.utc)
 
-    # Hardcode the first upload to 6:00 AM UTC on 12/26/2024
-    first_upload_time = datetime(2024, 12, 26, 6, 0, tzinfo=timezone.utc)
+    # Hardcode the first upload to 6:00 AM UTC on 12/30/2024
+    first_upload_time = datetime(2024, 12, 30, 6, 0, tzinfo=timezone.utc)
     if not last_upload_time:
         # Ensure the first upload time is valid
         if first_upload_time > now + timedelta(minutes=15):
@@ -143,8 +188,11 @@ def main():
     next_upload_time_iso = next_upload_time.isoformat().replace("+00:00", "Z")
     print(f"Scheduling video for: {next_upload_time_iso}")
 
-    # Upload video
-    upload_video(youtube, video_file, video_title, description, tags, next_upload_time_iso)
+    # Playlist name
+    playlist_name = "memes"
+
+    # Upload video and add it to the playlist
+    upload_video(youtube, video_file, video_title, description, tags, next_upload_time_iso, playlist_name)
 
     # Update the last upload time in the file
     write_last_upload_time(next_upload_time)
