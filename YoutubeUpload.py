@@ -178,7 +178,9 @@ def main():
     print(f"Generated Description:\n{description}")
 
     # Add tags
-    tags = ["Shorts", "Viral", "fyp", "memes", "Funny", "Trending", "Entertainment", "FYP", "dailymemes"]
+    tags = ["Shorts", "Viral", "fyp", "memes", "Funny", "Trending", "Entertainment", "FYP", "dailymemes", "Comedy",
+            "humor", "relatable", "hilarious", "LOL", "Jokes", "LaughOutLoud", "FunnyVideo", "skit", "funnyshorts",
+            "ComedyShorts", "ViralComedy", "funnycontent", "dailycomedy", "funnyvideo"]
 
     # Read the last upload time from the file
     last_upload_time = read_last_upload_time()

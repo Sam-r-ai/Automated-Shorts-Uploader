@@ -89,7 +89,9 @@ def process_email(subject, body, youtube):
             description = generate_description(subject)
 
             # Define tags
-            tags = ["Shorts", "Viral", "Instagram", "Trending", "Comedy"]
+            tags = ["Shorts", "Viral", "fyp", "memes", "Funny", "Trending", "Entertainment", "FYP", "dailymemes", "Comedy",
+            "humor", "relatable", "hilarious", "LOL", "Jokes", "LaughOutLoud", "FunnyVideo", "skit", "funnyshorts",
+            "ComedyShorts", "ViralComedy", "funnycontent", "dailycomedy", "funnyvideo"]
             playlist_name = "memes"
             # Read last upload time
             last_upload_time = read_last_upload_time()
