@@ -87,11 +87,11 @@ def process_email(subject, body, youtube):
             file_location = rf"C:\Users\super\Downloads\{file_name}"
             # Generate description
             description = generate_description(subject)
-
+            description += " memes memes I found on discord discord memes daily memes"
             # Define tags
-            tags = ["Shorts", "Viral", "fyp", "memes", "Funny", "Trending", "Entertainment", "FYP", "dailymemes", "Comedy",
-            "humor", "relatable", "hilarious", "LOL", "Jokes", "LaughOutLoud", "FunnyVideo", "skit", "funnyshorts",
-            "ComedyShorts", "ViralComedy", "funnycontent", "dailycomedy", "funnyvideo"]
+            tags = ["memes", "shorts", "fyp", "viral", "funny", "trending", "entertainment", "dailymemes", "comedy",
+            "humor", "relatable", "hilarious", "lol", "jokes", "laughoutloud", "shocking", "funnyshorts",
+            "lmao","comedyshorts", "viralcomedy", "funnycontent", "dailycomedy", "funnyvideo"]
             playlist_name = "memes"
             # Read last upload time
             last_upload_time = read_last_upload_time()

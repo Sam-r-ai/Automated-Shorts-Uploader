@@ -41,11 +41,11 @@ def authenticate_youtube():
 def generate_description(video_title):
     """Generate a YouTube video description using OpenAI."""
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "user",
-                "content": f"Write a compelling YouTube Shorts description for a video titled: '{video_title}'. Include hashtags and make it engaging. It's a comedy video and it's funny."
+                "content": f"Write a compelling YouTube Shorts description for a video titled: '{video_title}'. Include hashtags that are all underscore and make it engaging. It's a comedy video and it's funny."
             }
         ],
         temperature=0.7,
@@ -178,9 +178,9 @@ def main():
     print(f"Generated Description:\n{description}")
 
     # Add tags
-    tags = ["Shorts", "Viral", "fyp", "memes", "Funny", "Trending", "Entertainment", "FYP", "dailymemes", "Comedy",
-            "humor", "relatable", "hilarious", "LOL", "Jokes", "LaughOutLoud", "FunnyVideo", "skit", "funnyshorts",
-            "ComedyShorts", "ViralComedy", "funnycontent", "dailycomedy", "funnyvideo"]
+    tags = ["shorts", "viral", "fyp", "memes", "funny", "trending", "entertainment", "dailymemes", "comedy",
+            "humor", "relatable", "hilarious", "lol", "jokes", "laughoutloud", "skit", "funnyshorts",
+            "comedyshorts", "viralcomedy", "funnycontent", "dailycomedy", "funnyvideo"]
 
     # Read the last upload time from the file
     last_upload_time = read_last_upload_time()
