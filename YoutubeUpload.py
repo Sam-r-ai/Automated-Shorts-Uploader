@@ -140,27 +140,46 @@ def write_last_upload_time(upload_time):
 
 
 def calculate_next_upload_time(last_upload_time):
-    """Calculate the next upload time in 75-minute increments."""
+    """Calculate the next upload time at 9 AM, 1 PM, or 6 PM UTC daily."""
     now = datetime.now(timezone.utc)
+    scheduled_hours = [9, 13, 18]  # 9 AM, 1 PM, 6 PM UTC
+
+    # Generate scheduled times for today
+    today = now.date()
+    scheduled_times = [
+        datetime(today.year, today.month, today.day, hour, 0, tzinfo=timezone.utc)
+        for hour in scheduled_hours
+    ]
+
+    # Find the next valid upload time today
+    for scheduled_time in scheduled_times:
+        if scheduled_time > now + timedelta(minutes=15):
+            return scheduled_time
+
+    # If none left today, return the first time tomorrow
+    tomorrow = today + timedelta(days=1)
+    return datetime(tomorrow.year, tomorrow.month, tomorrow.day, scheduled_hours[0], 0, tzinfo=timezone.utc)
+    """Calculate the next upload time in 75-minute increments."""
+    #now = datetime.now(timezone.utc)
 
     # Hardcode the first upload to 6:00 AM UTC on 12/30/2024
-    first_upload_time = datetime(2024, 12, 30, 6, 0, tzinfo=timezone.utc)
-    if not last_upload_time:
+    #first_upload_time = datetime(2024, 12, 30, 6, 0, tzinfo=timezone.utc)
+    #if not last_upload_time:
         # Ensure the first upload time is valid
-        if first_upload_time > now + timedelta(minutes=15):
-            return first_upload_time
-        else:
-            return now + timedelta(minutes=75)
+    #    if first_upload_time > now + timedelta(minutes=15):
+    #        return first_upload_time
+    #    else:
+    #        return now + timedelta(minutes=75)
 
     # Increment the last upload time by 75 minutes
-    next_time = last_upload_time + timedelta(minutes=180)
+    #next_time = last_upload_time + timedelta(minutes=360)
 
     # Ensure the next upload time is at least 15 minutes in the future
-    while next_time <= now + timedelta(minutes=15):
-        next_time += timedelta(minutes=60)
+    #while next_time <= now + timedelta(minutes=15):
+    #    next_time += timedelta(minutes=60)
 
     # Return properly formatted and aligned time
-    return next_time.replace(second=0, microsecond=0)
+    #return next_time.replace(second=0, microsecond=0)
 
 def update_all_video_categories_to_entertainment(youtube):
     """Update the category of all uploaded videos to 'Entertainment'."""
