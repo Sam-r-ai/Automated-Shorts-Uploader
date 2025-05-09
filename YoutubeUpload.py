@@ -145,73 +145,6 @@ def write_last_upload_time(upload_time):
         file.write(upload_time.isoformat())
 
 
-def get_last_youtube_upload_time(youtube):
-    """Get the last upload time directly from YouTube API."""
-    try:
-        # Search for the most recent uploads on the authenticated channel
-        search_response = youtube.search().list(
-            part="snippet",
-            forMine=True,
-            maxResults=5,
-            order="date",
-            type="video"
-        ).execute()
-        
-        if not search_response.get("items"):
-            print("No previous uploads found on YouTube.")
-            return None
-        
-        # Get the most recent upload date
-        last_video = search_response["items"][0]
-        published_at = last_video["snippet"]["publishedAt"]
-        
-        # Convert to datetime object
-        last_upload = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
-        print(f"Last YouTube upload was at: {last_upload.strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        return last_upload
-        
-    except Exception as e:
-        print(f"Error retrieving last upload time from YouTube: {e}")
-        return None
-
-def get_latest_scheduled_time(youtube):
-    """Get the latest scheduled upload time from YouTube API."""
-    try:
-        # Search for the upcoming scheduled videos
-        videos_response = youtube.videos().list(
-            part="status,snippet",
-            myRating="like",  # Replace 'mine=True' with 'myRating="like"'
-            maxResults=50
-        ).execute()
-        
-        latest_scheduled = None
-        
-        for item in videos_response.get("items", []):
-            # Check if the video is scheduled
-            if "status" in item and "publishAt" in item["status"]:
-                # Convert the publishAt time to datetime
-                scheduled_time_str = item["status"]["publishAt"]
-                scheduled_time = datetime.fromisoformat(scheduled_time_str.replace('Z', '+00:00'))
-                
-                # Only consider future schedules
-                now = datetime.now(timezone.utc)
-                if scheduled_time > now:
-                    if latest_scheduled is None or scheduled_time > latest_scheduled:
-                        latest_scheduled = scheduled_time
-                        title = item["snippet"]["title"]
-                        print(f"Found scheduled video: '{title}' at {scheduled_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
-        
-        if latest_scheduled:
-            print(f"Latest scheduled upload time: {latest_scheduled.strftime('%Y-%m-%d %H:%M:%S')} UTC")
-            return latest_scheduled
-        else:
-            print("No pending scheduled uploads found.")
-            return None
-            
-    except Exception as e:
-        print(f"Error retrieving scheduled uploads from YouTube: {e}")
-        return None
-
 def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api=False):
     """
     Calculate the next upload time based on preferred schedule of 7 AM, 11 AM, and 7 PM local time.
@@ -269,9 +202,13 @@ def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api
         
         # Find first slot that's after both last upload and minimum future time
         for slot in upload_slots:
-            # Skip slots earlier than or equal to the last upload on the same day
-            if (slot.date() == last_upload_time.date() and 
-                slot.hour <= last_upload_time.hour):
+            # Skip slots earlier than or equal to the last upload date
+            # This fixes the issue where it was scheduling for dates before the last upload
+            if slot.date() < last_upload_time.date():
+                continue
+                
+            # Skip slots on the same day with hour <= the last upload hour
+            if slot.date() == last_upload_time.date() and slot.hour <= last_upload_time.hour:
                 continue
                 
             if slot >= min_future_time:
@@ -284,12 +221,27 @@ def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api
                 next_slot = slot
                 break
     
-    # If no suitable slot found, fall back to 7 AM the day after tomorrow
+    # If no suitable slot found from today or tomorrow, find the next available day
     if not next_slot:
-        day_after_tomorrow = today + timedelta(days=2)
-        next_slot = datetime(day_after_tomorrow.year, day_after_tomorrow.month, 
-                            day_after_tomorrow.day, preferred_hours[0], 0, 
-                            tzinfo=local_tz)
+        # Start with the day after tomorrow
+        next_day = today + timedelta(days=2)
+        
+        # If there's a last upload time and that date is in the future, 
+        # start from the day after the last upload date
+        if last_upload_time and last_upload_time.date() >= today:
+            next_day = last_upload_time.date() + timedelta(days=1)
+            
+        next_slot = datetime(next_day.year, next_day.month, next_day.day, 
+                           preferred_hours[0], 0, tzinfo=local_tz)
+    
+    # Double-check that the next slot is AFTER the last upload time
+    if last_upload_time and next_slot <= last_upload_time:
+        print(f"Warning: Calculated upload time {next_slot} is before or equal to last upload time {last_upload_time}!")
+        # Force it to be the next day after last_upload_time
+        next_day = last_upload_time.date() + timedelta(days=1)
+        next_slot = datetime(next_day.year, next_day.month, next_day.day, 
+                           preferred_hours[0], 0, tzinfo=local_tz)
+        print(f"Adjusted to: {next_slot}")
     
     # YouTube API requires UTC time in ISO format
     next_slot_utc = next_slot.astimezone(timezone.utc)
