@@ -1,10 +1,11 @@
 import os
 import time
 import base64
+from datetime import datetime, timedelta, timezone
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-from IGvideodownload import get_video_url, download_video  # Import functions from IGvideodownload.py
+from instagram_downloader import download_instagram_reel  # Import new function
 from YoutubeUpload import (  
     upload_video,
     authenticate_youtube,
@@ -78,43 +79,70 @@ def process_email(subject, body, youtube):
     """Extract Instagram URL, download the video, and upload it to YouTube."""
     if body and body.startswith("https://www.instagram.com"):
         print(f"Downloading video from: {body}")
-        video_url = get_video_url(body)
-        if video_url:
-            file_name = f"{subject}.mp4"
-            download_video(video_url, file_name)
-            print(f"Downloaded video saved as: {file_name}")
-
-            file_location = rf"C:\Users\super\Downloads\{file_name}"
+        
+        # Use the custom_filename parameter to download directly with the subject name
+        downloads_folder = r"C:\Users\super\Downloads"
+        
+        # Download with custom filename directly - no renaming needed
+        downloaded_path = download_instagram_reel(body, downloads_folder, subject)
+        
+        if downloaded_path:
+            print(f"Downloaded video saved as: {downloaded_path}")
+            
             # Generate description
             description = generate_description(subject)
             description += " funny memes shorts fyp memes I found on discord discord memes daily memes"
+            
             # Define tags
             tags = ["memes", "shorts", "fyp", "viral", "funny", "trending", "entertainment", "dailymemes", "comedy",
-            "humor", "relatable", "hilarious", "lol", "jokes", "laughoutloud", "shocking", "funnyshorts",
-            "lmao","comedyshorts", "viralcomedy", "funnycontent", "dailycomedy", "funnyvideo"]
+                   "humor", "relatable", "hilarious", "lol", "jokes", "laughoutloud", "shocking", "funnyshorts",
+                   "lmao","comedyshorts", "viralcomedy", "funnycontent", "dailycomedy", "funnyvideo"]
+            
             playlist_name = "funny memes shorts compilation"
-            # Read last upload time
+            
+            # Read last upload time from file
             last_upload_time = read_last_upload_time()
-            print(f"last upload time: {last_upload_time}")
-            # Schedule next upload time
-            next_upload_time = calculate_next_upload_time(last_upload_time)
-            next_upload_time_iso = next_upload_time.isoformat().replace("+00:00", "Z")
-            print(f"Scheduled upload time: {next_upload_time_iso}")
+            
+            # Schedule next upload time using ONLY the file data
+            next_upload_time = calculate_next_upload_time(youtube, last_upload_time, check_youtube_api=False)
+            
+            # Double-check that the upload time is valid (at least 15 mins in future)
+            local_tz = datetime.now().astimezone().tzinfo
+            now = datetime.now(local_tz)
+            now_utc = now.astimezone(timezone.utc)
+            
+            if next_upload_time <= now_utc + timedelta(minutes=15):
+                print(f"Warning: Calculated upload time {next_upload_time} is too soon. Adjusting...")
+                # Use a fallback time 20 minutes from now
+                fallback_time = now + timedelta(minutes=20)
+                next_upload_time = fallback_time.astimezone(timezone.utc)
+                print(f"Using fallback time: {fallback_time}")
+            
             # Upload video to YouTube
-            upload_video(youtube, file_location, subject, description, tags, next_upload_time_iso, playlist_name)
-
-            # Update last upload time
-            write_last_upload_time(next_upload_time)
+            upload_video(youtube, downloaded_path, subject, description, tags, next_upload_time, playlist_name)
+            
+            # Update the last upload time - IMPORTANT: store in local time for readability
+            next_local_time = next_upload_time.astimezone(local_tz)
+            write_last_upload_time(next_local_time)
+            
             print("Video uploaded successfully!")
         else:
-            print("Failed to extract video URL.")
+            print("Failed to download Instagram video.")
     else:
         print("No valid Instagram URL found in the email body.")
-
+        
 def main():
     sender_email = "justinferrari91@gmail.com"
     gmail_service = authenticate_gmail()
     youtube_service = authenticate_youtube()  # Authenticate YouTube service
+    
+    # Read local last upload time
+    last_upload_time = read_last_upload_time()
+    if last_upload_time:
+        print(f"Initial last upload time from file: {last_upload_time}")
+    else:
+        print("No previous upload time found in file.")
+    
     print("Monitoring for emails...")
 
     while True:
@@ -123,6 +151,5 @@ def main():
             print(f"New Email Received - Subject: {subject}")
             process_email(subject, body, youtube_service)
         time.sleep(10)  # Check every 10 seconds
-
 if __name__ == '__main__':
     main()

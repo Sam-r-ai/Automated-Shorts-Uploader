@@ -93,6 +93,12 @@ def add_to_playlist(youtube, playlist_name, video_id):
 
 def upload_video(youtube, file_path, title, description, tags, scheduled_time, playlist_name):
     """Upload video to YouTube and add it to a playlist."""
+    # Make sure the scheduled_time is in UTC and properly formatted for YouTube API
+    if isinstance(scheduled_time, datetime):
+        if scheduled_time.tzinfo != timezone.utc:
+            scheduled_time = scheduled_time.astimezone(timezone.utc)
+        scheduled_time = scheduled_time.isoformat().replace("+00:00", "Z")
+    
     print(f"Debug: Attempting to schedule video at {scheduled_time}")  # Debugging scheduled time
 
     request_body = {
@@ -139,47 +145,159 @@ def write_last_upload_time(upload_time):
         file.write(upload_time.isoformat())
 
 
-def calculate_next_upload_time(last_upload_time):
-    """Calculate the next upload time at 9 AM, 1 PM, or 6 PM UTC daily."""
-    now = datetime.now(timezone.utc)
-    scheduled_hours = [9, 13, 18]  # 9 AM, 1 PM, 6 PM UTC
+def get_last_youtube_upload_time(youtube):
+    """Get the last upload time directly from YouTube API."""
+    try:
+        # Search for the most recent uploads on the authenticated channel
+        search_response = youtube.search().list(
+            part="snippet",
+            forMine=True,
+            maxResults=5,
+            order="date",
+            type="video"
+        ).execute()
+        
+        if not search_response.get("items"):
+            print("No previous uploads found on YouTube.")
+            return None
+        
+        # Get the most recent upload date
+        last_video = search_response["items"][0]
+        published_at = last_video["snippet"]["publishedAt"]
+        
+        # Convert to datetime object
+        last_upload = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+        print(f"Last YouTube upload was at: {last_upload.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        return last_upload
+        
+    except Exception as e:
+        print(f"Error retrieving last upload time from YouTube: {e}")
+        return None
 
-    # Generate scheduled times for today
+def get_latest_scheduled_time(youtube):
+    """Get the latest scheduled upload time from YouTube API."""
+    try:
+        # Search for the upcoming scheduled videos
+        videos_response = youtube.videos().list(
+            part="status,snippet",
+            myRating="like",  # Replace 'mine=True' with 'myRating="like"'
+            maxResults=50
+        ).execute()
+        
+        latest_scheduled = None
+        
+        for item in videos_response.get("items", []):
+            # Check if the video is scheduled
+            if "status" in item and "publishAt" in item["status"]:
+                # Convert the publishAt time to datetime
+                scheduled_time_str = item["status"]["publishAt"]
+                scheduled_time = datetime.fromisoformat(scheduled_time_str.replace('Z', '+00:00'))
+                
+                # Only consider future schedules
+                now = datetime.now(timezone.utc)
+                if scheduled_time > now:
+                    if latest_scheduled is None or scheduled_time > latest_scheduled:
+                        latest_scheduled = scheduled_time
+                        title = item["snippet"]["title"]
+                        print(f"Found scheduled video: '{title}' at {scheduled_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        
+        if latest_scheduled:
+            print(f"Latest scheduled upload time: {latest_scheduled.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+            return latest_scheduled
+        else:
+            print("No pending scheduled uploads found.")
+            return None
+            
+    except Exception as e:
+        print(f"Error retrieving scheduled uploads from YouTube: {e}")
+        return None
+
+def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api=False):
+    """
+    Calculate the next upload time based on preferred schedule of 7 AM, 11 AM, and 7 PM local time.
+    Uses last_upload_time.txt as the source of truth.
+    """
+    # Define preferred upload times in local time (7 AM, 11 AM, and 7 PM)
+    preferred_hours = [7, 11, 19]
+    
+    # Get current time in local timezone
+    local_tz = datetime.now().astimezone().tzinfo
+    now = datetime.now(local_tz)
+    
+    # Process the last upload time from the file
+    if last_upload_time:
+        # Convert string timestamp to datetime if needed
+        if isinstance(last_upload_time, str):
+            try:
+                last_upload_time = datetime.fromisoformat(last_upload_time)
+                # Ensure it has timezone info
+                if last_upload_time.tzinfo is None:
+                    last_upload_time = last_upload_time.replace(tzinfo=timezone.utc).astimezone(local_tz)
+                else:
+                    last_upload_time = last_upload_time.astimezone(local_tz)
+            except ValueError:
+                print(f"Warning: Could not parse last upload time '{last_upload_time}'")
+                last_upload_time = None
+        elif last_upload_time.tzinfo:
+            # Convert existing datetime to local time zone
+            last_upload_time = last_upload_time.astimezone(local_tz)
+    
+    # Generate all possible upload slots for today and tomorrow
+    upload_slots = []
+    
+    # Add today's slots
     today = now.date()
-    scheduled_times = [
-        datetime(today.year, today.month, today.day, hour, 0, tzinfo=timezone.utc)
-        for hour in scheduled_hours
-    ]
-
-    # Find the next valid upload time today
-    for scheduled_time in scheduled_times:
-        if scheduled_time > now + timedelta(minutes=15):
-            return scheduled_time
-
-    # If none left today, return the first time tomorrow
+    for hour in preferred_hours:
+        slot = datetime(today.year, today.month, today.day, hour, 0, tzinfo=local_tz)
+        upload_slots.append(slot)
+    
+    # Add tomorrow's slots
     tomorrow = today + timedelta(days=1)
-    return datetime(tomorrow.year, tomorrow.month, tomorrow.day, scheduled_hours[0], 0, tzinfo=timezone.utc)
-    """Calculate the next upload time in 75-minute increments."""
-    #now = datetime.now(timezone.utc)
-
-    # Hardcode the first upload to 6:00 AM UTC on 12/30/2024
-    #first_upload_time = datetime(2024, 12, 30, 6, 0, tzinfo=timezone.utc)
-    #if not last_upload_time:
-        # Ensure the first upload time is valid
-    #    if first_upload_time > now + timedelta(minutes=15):
-    #        return first_upload_time
-    #    else:
-    #        return now + timedelta(minutes=75)
-
-    # Increment the last upload time by 75 minutes
-    #next_time = last_upload_time + timedelta(minutes=360)
-
-    # Ensure the next upload time is at least 15 minutes in the future
-    #while next_time <= now + timedelta(minutes=15):
-    #    next_time += timedelta(minutes=60)
-
-    # Return properly formatted and aligned time
-    #return next_time.replace(second=0, microsecond=0)
+    for hour in preferred_hours:
+        slot = datetime(tomorrow.year, tomorrow.month, tomorrow.day, hour, 0, tzinfo=local_tz)
+        upload_slots.append(slot)
+    
+    # Sort slots by time
+    upload_slots.sort()
+    
+    # Find the next available slot
+    next_slot = None
+    min_future_time = now + timedelta(minutes=15)  # Must be at least 15 minutes in future
+    
+    if last_upload_time:
+        print(f"Last upload time from file: {last_upload_time.strftime('%Y-%m-%d %H:%M:%S')} {local_tz}")
+        
+        # Find first slot that's after both last upload and minimum future time
+        for slot in upload_slots:
+            # Skip slots earlier than or equal to the last upload on the same day
+            if (slot.date() == last_upload_time.date() and 
+                slot.hour <= last_upload_time.hour):
+                continue
+                
+            if slot >= min_future_time:
+                next_slot = slot
+                break
+    else:
+        # No last upload time, just find next available slot
+        for slot in upload_slots:
+            if slot >= min_future_time:
+                next_slot = slot
+                break
+    
+    # If no suitable slot found, fall back to 7 AM the day after tomorrow
+    if not next_slot:
+        day_after_tomorrow = today + timedelta(days=2)
+        next_slot = datetime(day_after_tomorrow.year, day_after_tomorrow.month, 
+                            day_after_tomorrow.day, preferred_hours[0], 0, 
+                            tzinfo=local_tz)
+    
+    # YouTube API requires UTC time in ISO format
+    next_slot_utc = next_slot.astimezone(timezone.utc)
+    
+    print(f"Scheduled next upload for: {next_slot.strftime('%Y-%m-%d %H:%M:%S')} {local_tz}")
+    print(f"  (which is {next_slot_utc.strftime('%Y-%m-%d %H:%M:%S')} UTC)")
+    
+    return next_slot_utc
 
 def update_all_video_categories_to_entertainment(youtube):
     """Update the category of all uploaded videos to 'Entertainment'."""
