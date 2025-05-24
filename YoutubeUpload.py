@@ -147,11 +147,11 @@ def write_last_upload_time(upload_time):
 
 def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api=False):
     """
-    Calculate the next upload time based on preferred schedule of 7 AM, 11 AM, and 7 PM local time.
+    Calculate the next upload time based on preferred schedule of 9 AM, 1 PM, and 8 PM local time.
     Uses last_upload_time.txt as the source of truth.
     """
-    # Define preferred upload times in local time (7 AM, 11 AM, and 7 PM)
-    preferred_hours = [7, 11, 19]
+    # Define preferred upload times in local time (9 AM, 1 PM, and 8 PM)
+    preferred_hours = [9, 13, 20]
     
     # Get current time in local timezone
     local_tz = datetime.now().astimezone().tzinfo
@@ -174,74 +174,131 @@ def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api
         elif last_upload_time.tzinfo:
             # Convert existing datetime to local time zone
             last_upload_time = last_upload_time.astimezone(local_tz)
+            print(f"Converted last upload time to: {last_upload_time}")
     
-    # Generate all possible upload slots for today and tomorrow
-    upload_slots = []
+    # Start generating slots from today
+    current_date = now.date()
     
-    # Add today's slots
-    today = now.date()
-    for hour in preferred_hours:
-        slot = datetime(today.year, today.month, today.day, hour, 0, tzinfo=local_tz)
-        upload_slots.append(slot)
-    
-    # Add tomorrow's slots
-    tomorrow = today + timedelta(days=1)
-    for hour in preferred_hours:
-        slot = datetime(tomorrow.year, tomorrow.month, tomorrow.day, hour, 0, tzinfo=local_tz)
-        upload_slots.append(slot)
-    
-    # Sort slots by time
-    upload_slots.sort()
-    
-    # Find the next available slot
-    next_slot = None
-    min_future_time = now + timedelta(minutes=15)  # Must be at least 15 minutes in future
-    
+    # If we have a last upload time, start from its date
     if last_upload_time:
-        print(f"Last upload time from file: {last_upload_time.strftime('%Y-%m-%d %H:%M:%S')} {local_tz}")
+        print(f"Last upload time: {last_upload_time}")
+        # Find the next slot after the last upload
         
-        # Find first slot that's after both last upload and minimum future time
-        for slot in upload_slots:
-            # Skip slots earlier than or equal to the last upload date
-            # This fixes the issue where it was scheduling for dates before the last upload
-            if slot.date() < last_upload_time.date():
-                continue
-                
-            # Skip slots on the same day with hour <= the last upload hour
-            if slot.date() == last_upload_time.date() and slot.hour <= last_upload_time.hour:
-                continue
-                
-            if slot >= min_future_time:
-                next_slot = slot
-                break
-    else:
-        # No last upload time, just find next available slot
-        for slot in upload_slots:
-            if slot >= min_future_time:
-                next_slot = slot
-                break
-    
-    # If no suitable slot found from today or tomorrow, find the next available day
-    if not next_slot:
-        # Start with the day after tomorrow
-        next_day = today + timedelta(days=2)
+        # Case 1: Last upload was at 9 AM, next should be 1 PM same day
+        if last_upload_time.hour == 9:
+            next_slot = datetime(
+                last_upload_time.year, 
+                last_upload_time.month, 
+                last_upload_time.day, 
+                13, 0, tzinfo=local_tz
+            )
         
-        # If there's a last upload time and that date is in the future, 
-        # start from the day after the last upload date
-        if last_upload_time and last_upload_time.date() >= today:
+        # Case 2: Last upload was at 1 PM, next should be 8 PM same day
+        elif last_upload_time.hour == 13:
+            next_slot = datetime(
+                last_upload_time.year, 
+                last_upload_time.month, 
+                last_upload_time.day, 
+                20, 0, tzinfo=local_tz
+            )
+        
+        # Case 3: Last upload was at 8 PM, next should be 9 AM next day
+        elif last_upload_time.hour == 20:
             next_day = last_upload_time.date() + timedelta(days=1)
+            next_slot = datetime(
+                next_day.year, 
+                next_day.month, 
+                next_day.day, 
+                9, 0, tzinfo=local_tz
+            )
+        
+        # Case 4: Last upload was at some other time, find the next available slot
+        else:
+            # Start checking from last upload date
+            check_date = last_upload_time.date()
             
-        next_slot = datetime(next_day.year, next_day.month, next_day.day, 
-                           preferred_hours[0], 0, tzinfo=local_tz)
+            # Try to find a slot on the same day
+            found = False
+            for hour in preferred_hours:
+                potential_slot = datetime(
+                    check_date.year, 
+                    check_date.month, 
+                    check_date.day, 
+                    hour, 0, tzinfo=local_tz
+                )
+                if potential_slot > last_upload_time:
+                    next_slot = potential_slot
+                    found = True
+                    break
+            
+            # If no slot found on same day, move to next day's first slot
+            if not found:
+                next_day = check_date + timedelta(days=1)
+                next_slot = datetime(
+                    next_day.year, 
+                    next_day.month, 
+                    next_day.day, 
+                    9, 0, tzinfo=local_tz
+                )
+    else:
+        # No last upload time, find the next available slot from now
+        found = False
+        
+        # Try today's slots
+        for hour in preferred_hours:
+            potential_slot = datetime(
+                current_date.year, 
+                current_date.month, 
+                current_date.day, 
+                hour, 0, tzinfo=local_tz
+            )
+            # Need at least 15 minutes in the future
+            if potential_slot > now + timedelta(minutes=15):
+                next_slot = potential_slot
+                found = True
+                break
+        
+        # If no suitable slot today, use tomorrow's first slot
+        if not found:
+            next_day = current_date + timedelta(days=1)
+            next_slot = datetime(
+                next_day.year, 
+                next_day.month, 
+                next_day.day, 
+                9, 0, tzinfo=local_tz
+            )
     
-    # Double-check that the next slot is AFTER the last upload time
-    if last_upload_time and next_slot <= last_upload_time:
-        print(f"Warning: Calculated upload time {next_slot} is before or equal to last upload time {last_upload_time}!")
-        # Force it to be the next day after last_upload_time
-        next_day = last_upload_time.date() + timedelta(days=1)
-        next_slot = datetime(next_day.year, next_day.month, next_day.day, 
-                           preferred_hours[0], 0, tzinfo=local_tz)
-        print(f"Adjusted to: {next_slot}")
+    # Final safety check: ensure the slot is at least 15 minutes in the future
+    min_future_time = now + timedelta(minutes=15)
+    if next_slot < min_future_time:
+        print(f"Warning: Calculated time {next_slot} is less than 15 minutes in the future!")
+        
+        # Find the next available slot from the current time
+        found = False
+        check_date = now.date()
+        
+        # Try today's remaining slots
+        for hour in preferred_hours:
+            potential_slot = datetime(
+                check_date.year, 
+                check_date.month, 
+                check_date.day, 
+                hour, 0, tzinfo=local_tz
+            )
+            if potential_slot >= min_future_time:
+                next_slot = potential_slot
+                found = True
+                break
+                
+        # If no suitable slot today, use tomorrow's first slot
+        if not found:
+            next_day = check_date + timedelta(days=1)
+            next_slot = datetime(
+                next_day.year, 
+                next_day.month, 
+                next_day.day, 
+                9, 0, tzinfo=local_tz
+            )
     
     # YouTube API requires UTC time in ISO format
     next_slot_utc = next_slot.astimezone(timezone.utc)
