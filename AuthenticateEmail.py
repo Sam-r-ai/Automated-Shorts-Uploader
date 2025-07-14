@@ -1,11 +1,15 @@
 import os
 import time
 import base64
+from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from instagram_downloader import download_instagram_reel  # Import new function
+
+load_dotenv()  # Load environment variables from .env file
+
 from YoutubeUpload import (  
     upload_video,
     authenticate_youtube,
@@ -20,19 +24,26 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.modify']  # Changed scope to al
 
 def authenticate_gmail():
     """Authenticate with Gmail API and return the service object."""
-    creds = None
-    if os.path.exists('token.json'):
-        from google.oauth2.credentials import Credentials
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-    return build('gmail', 'v1', credentials=creds)
+    try:
+        # Use the token manager to get an authenticated service
+        from token_manager import get_gmail_service
+        return get_gmail_service(full_access=False)
+    except Exception as e:
+        print(f"Error authenticating Gmail: {e}")
+        # Fallback to legacy authentication if the token manager fails
+        creds = None
+        if os.path.exists('token.json'):
+            from google.oauth2.credentials import Credentials
+            creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+                creds = flow.run_local_server(port=0)
+            with open('token.json', 'w') as token:
+                token.write(creds.to_json())
+        return build('gmail', 'v1', credentials=creds)
 
 def check_email(service, sender_email):
     """Check for new emails from a specific sender."""
@@ -94,7 +105,7 @@ def process_email(subject, body, youtube):
             description += " funny memes shorts fyp memes I found on discord discord memes daily memes"
             
             # Define tags
-            tags = ["memes", "shorts", "fyp", "viral", "funny", "trending", "entertainment", "dailymemes", "comedy",
+            tags = ["clubmarsmemes", "subscribe","memes", "shorts", "fyp", "viral", "funny", "trending", "entertainment", "dailymemes", "comedy",
                    "humor", "relatable", "hilarious", "lol", "jokes", "laughoutloud", "shocking", "funnyshorts",
                    "lmao","comedyshorts", "viralcomedy", "funnycontent", "dailycomedy", "funnyvideo"]
             
@@ -132,7 +143,7 @@ def process_email(subject, body, youtube):
         print("No valid Instagram URL found in the email body.")
         
 def main():
-    sender_email = "justinferrari91@gmail.com"
+    sender_email = os.getenv("SENDER_EMAIL")  # Use the environment variable from .env file
     gmail_service = authenticate_gmail()
     youtube_service = authenticate_youtube()  # Authenticate YouTube service
     

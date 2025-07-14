@@ -1,31 +1,40 @@
 import os
 import time
+from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
+load_dotenv()
 # Define the scope for Gmail API (full access needed for deletion)
 SCOPES = ['https://mail.google.com/']  # Full access scope required for batch delete
 
 def authenticate_gmail():
     """Authenticate with Gmail API and return the service object."""
-    creds = None
-    # Force token refresh by checking for special deletion token first
-    if os.path.exists('gmail_deletion_token.json'):
-        creds = Credentials.from_authorized_user_file('gmail_deletion_token.json', SCOPES)
-    
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            # Create a new flow with the more permissive scope
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save token separately to avoid interfering with other scripts
-        with open('gmail_deletion_token.json', 'w') as token:
-            token.write(creds.to_json())
-    return build('gmail', 'v1', credentials=creds)
+    try:
+        # Use the token manager to get an authenticated service with full access
+        from token_manager import get_gmail_service
+        return get_gmail_service(full_access=True)
+    except Exception as e:
+        print(f"Error authenticating Gmail for deletion: {e}")
+        # Fallback to legacy authentication if the token manager fails
+        creds = None
+        # Force token refresh by checking for special deletion token first
+        if os.path.exists('gmail_deletion_token.json'):
+            creds = Credentials.from_authorized_user_file('gmail_deletion_token.json', SCOPES)
+        
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                # Create a new flow with the more permissive scope
+                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+                creds = flow.run_local_server(port=0)
+            # Save token separately to avoid interfering with other scripts
+            with open('gmail_deletion_token.json', 'w') as token:
+                token.write(creds.to_json())
+        return build('gmail', 'v1', credentials=creds)
 
 def delete_emails(service, sender_email, batch_size=100, max_emails=1000):
     """
@@ -100,11 +109,15 @@ def delete_emails(service, sender_email, batch_size=100, max_emails=1000):
 def main():
     """Main function to run the email deletion tool."""
     # Sender email to target for deletion
-    sender_email = ""
+    sender_email = os.getenv("SENDER_EMAIL")  # Use the environment variable from .env file
     print("=====================================================")
     print("Gmail Cleanup Tool - Email Deletion Utility")
     print("=====================================================")
     
+    if(sender_email == "" or sender_email is None):
+        print("Error: Sender email is not set. Please set the sender_email variable.")
+        exit(1)
+
     # Get Gmail service
     print("Authenticating with Gmail...")
     gmail_service = authenticate_gmail()

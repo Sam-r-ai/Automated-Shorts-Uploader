@@ -1,5 +1,4 @@
 import os
-import time
 from datetime import datetime, timedelta, timezone
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -25,27 +24,18 @@ LAST_UPLOAD_FILE = "last_upload_time.txt"  # File to store the last upload time
 
 def authenticate_youtube():
     """Authenticate with YouTube API and return the service object."""
-    from token_manager import get_youtube_service
-    try:
-        # Use the token manager to get an authenticated service
-        return get_youtube_service()
-    except Exception as e:
-        print(f"Error authenticating YouTube: {e}")
-        # Fallback to legacy authentication if the token manager fails
-        creds = None
-        if os.path.exists("youtube_token.json"):
-            creds = Credentials.from_authorized_user_file("youtube_token.json", SCOPES)
-        
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-                creds = flow.run_local_server(port=0)
-            with open("youtube_token.json", "w") as token:
-                token.write(creds.to_json())
-        
-        return build("youtube", "v3", credentials=creds)
+    creds = None
+    if os.path.exists("youtube_token.json"):
+        creds = Credentials.from_authorized_user_file("youtube_token.json", SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open("youtube_token.json", "w") as token:
+            token.write(creds.to_json())
+    return build("youtube", "v3", credentials=creds)
 
 
 def generate_description(video_title):
@@ -68,33 +58,19 @@ def add_to_playlist(youtube, playlist_name, video_id):
     # Get the playlist ID for the given playlist name
     playlists_response = youtube.playlists().list(
         part="snippet",
-        mine=True,
+        mine=True,  # Get playlists belonging to the authenticated user
         maxResults=50
     ).execute()
 
     playlist_id = None
     for playlist in playlists_response["items"]:
-        if playlist["snippet"]["title"] == playlist_name:
+        if playlist["snippet"]["title"].lower() == playlist_name.lower():
             playlist_id = playlist["id"]
             break
 
     if not playlist_id:
-        # Create the playlist if it doesn't exist
-        playlist_request = {
-            "snippet": {
-                "title": playlist_name,
-                "description": f"Auto-generated playlist for {playlist_name} videos"
-            },
-            "status": {
-                "privacyStatus": "public"
-            }
-        }
-        playlist_response = youtube.playlists().insert(
-            part="snippet,status",
-            body=playlist_request
-        ).execute()
-        playlist_id = playlist_response["id"]
-        print(f"Created new playlist: {playlist_name}")
+        print(f"Error: Playlist '{playlist_name}' not found.")
+        return
 
     # Add the video to the playlist
     request_body = {
@@ -119,6 +95,8 @@ def upload_video(youtube, file_path, title, description, tags, scheduled_time, p
     """Upload video to YouTube and add it to a playlist."""
     # Make sure the scheduled_time is in UTC and properly formatted for YouTube API
     if isinstance(scheduled_time, datetime):
+        if scheduled_time.tzinfo != timezone.utc:
+            scheduled_time = scheduled_time.astimezone(timezone.utc)
         scheduled_time = scheduled_time.isoformat().replace("+00:00", "Z")
     
     print(f"Debug: Attempting to schedule video at {scheduled_time}")  # Debugging scheduled time
@@ -128,7 +106,7 @@ def upload_video(youtube, file_path, title, description, tags, scheduled_time, p
             "title": title,
             "description": description,
             "tags": tags,
-            "categoryId": "24"  # Entertainment category
+            "categoryId": "24"  # Category: Comedy
         },
         "status": {
             "privacyStatus": "private",  # For testing purposes
@@ -168,8 +146,7 @@ def write_last_upload_time(upload_time):
 
 
 def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api=False):
-    """
-    Calculate the next upload time based on preferred schedule throughout the day.
+    """    Calculate the next upload time based on preferred schedule throughout the day.
     Uses last_upload_time.txt as the source of truth.
     """
     # Define preferred upload times in local time (every 3 hours throughout the day)
@@ -200,10 +177,10 @@ def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api
     
     # Start generating slots from today
     current_date = now.date()
-    
-    # If we have a last upload time, start from its date
+      # If we have a last upload time, start from its date
     if last_upload_time:
         print(f"Last upload time: {last_upload_time}")
+        # Find the next slot after the last upload
         
         # First, find which hour slot the last upload was in
         last_hour = last_upload_time.hour
@@ -231,8 +208,7 @@ def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api
                     break
             
             # If no slot found today, use the first slot tomorrow
-            if next_hour is None:
-                next_hour = preferred_hours[0]
+            if next_hour is None:                next_hour = preferred_hours[0]
                 next_day = True
         
         # Create the datetime for the next slot
@@ -272,7 +248,7 @@ def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api
                 next_day.year, 
                 next_day.month, 
                 next_day.day, 
-                preferred_hours[0], 0, tzinfo=local_tz
+                9, 0, tzinfo=local_tz
             )
     
     # Final safety check: ensure the slot is at least 15 minutes in the future
@@ -304,7 +280,7 @@ def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api
                 next_day.year, 
                 next_day.month, 
                 next_day.day, 
-                preferred_hours[0], 0, tzinfo=local_tz
+                9, 0, tzinfo=local_tz
             )
     
     # YouTube API requires UTC time in ISO format
@@ -423,10 +399,10 @@ def comment_and_pin_on_video(youtube, video_id, comment_text="Like and subscribe
             moderationStatus="published",
             banAuthor=False
         ).execute()
-        print(f"Comment pinned successfully for video {video_id}")
 
+        print(f"Comment pinned successfully for video {video_id}!")
     except Exception as e:
-        print(f"Error processing comments for video {video_id}: {e}")
+        print(f"An error occurred while processing video {video_id}: {e}")
 
 
 def process_all_videos_and_comment(youtube, comment_text="Like and subscribe for more!"):
@@ -442,7 +418,23 @@ def main():
     #update_all_video_categories_to_entertainment(youtube)
     #process_all_videos_and_comment(youtube, comment_text="Like and subscribe for more!")
     #video_file = r"C:\Users\super\Downloads\Messi or Ronaldo #memes #soccer #football #clubmarsmemes.mp4" # Ensure this path is correct
+    #video_title = "Messi or Ronaldo? #memes #soccer #football #clubmarsmemes.mp4"
 
+    # Check if the file exists
+    #if not os.path.exists(video_file):
+    #    print(f"Error: File '{video_file}' not found. Please check the path and try again.")
+    #    return
+
+    # Generate description
+    #description = generate_description(video_title)
+    #print(f"Generated Description:\n{description}")
+
+    # Add tags
+    #tags = ["shorts", "viral", "fyp", "memes", "funny", "trending", "entertainment", "dailymemes", "comedy",
+     #       "humor", "relatable", "hilarious", "lol", "jokes", "laughoutloud", "skit", "funnyshorts",
+    #        "comedyshorts", "viralcomedy", "funnycontent", "dailycomedy", "funnyvideo"]
+
+    # Read the last upload time from the file
    # last_upload_time = read_last_upload_time()
     #next_upload_time = calculate_next_upload_time(last_upload_time)
 

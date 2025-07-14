@@ -25,27 +25,20 @@ LAST_UPLOAD_FILE = "last_upload_time.txt"  # File to store the last upload time
 
 def authenticate_youtube():
     """Authenticate with YouTube API and return the service object."""
-    from token_manager import get_youtube_service
-    try:
-        # Use the token manager to get an authenticated service
-        return get_youtube_service()
-    except Exception as e:
-        print(f"Error authenticating YouTube: {e}")
-        # Fallback to legacy authentication if the token manager fails
-        creds = None
-        if os.path.exists("youtube_token.json"):
-            creds = Credentials.from_authorized_user_file("youtube_token.json", SCOPES)
-        
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-                creds = flow.run_local_server(port=0)
-            with open("youtube_token.json", "w") as token:
-                token.write(creds.to_json())
-        
-        return build("youtube", "v3", credentials=creds)
+    creds = None
+    if os.path.exists("youtube_token.json"):
+        creds = Credentials.from_authorized_user_file("youtube_token.json", SCOPES)
+    
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open("youtube_token.json", "w") as token:
+            token.write(creds.to_json())
+    
+    return build("youtube", "v3", credentials=creds)
 
 
 def generate_description(video_title):
