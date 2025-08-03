@@ -105,9 +105,9 @@ def process_email(subject, body, youtube):
             description += " funny memes shorts fyp memes I found on discord discord memes daily memes"
             
             # Define tags
-            tags = ["clubmarsmemes", "subscribe","memes", "shorts", "fyp", "viral", "funny", "trending", "entertainment", "dailymemes", "comedy",
-                   "humor", "relatable", "hilarious", "lol", "jokes", "laughoutloud", "shocking", "funnyshorts",
-                   "lmao","comedyshorts", "viralcomedy", "funnycontent", "dailycomedy", "funnyvideo"]
+            tags = ["clubmarsmemes", "clubmars","shorts", "fyp", "viral", "funny", "trending", "entertainment", "dailymemes", "nostalgia",
+                   "nostalgic", "relatable", "memories", "viralvideos", "virallibrary", "memehistory", "viralhistory", "funnyshorts",
+                   "lmao","memorablevideos", "caughtoncamera", "funnycontent", "dailycomedy", "funnyvideo"]
             
             playlist_name = "funny memes shorts compilation"
             
