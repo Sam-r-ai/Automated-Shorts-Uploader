@@ -64,6 +64,10 @@ def check_email(service, sender_email):
             if header['name'] == 'Subject':
                 subject = header['value']
 
+        # Set default if subject is missing or empty
+        if not subject:
+            subject = "#clubmars"
+            
         # Extract body
         body = ""
         if 'data' in payload['body']:
