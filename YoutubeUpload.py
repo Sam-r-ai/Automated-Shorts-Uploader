@@ -55,7 +55,7 @@ def generate_description(video_title):
         messages=[
             {
                 "role": "user",
-                "content": f"Write a compelling and engaging YouTube Shorts description that is SEO optimized with many keywords for a video titled: '{video_title}'. Include hashtags that are all underscore and make it engaging. Do not use underscores. It's a comedy video and it's funny."
+                "content": f"Write a compelling and engaging YouTube Shorts description for a comedy video titled: '{video_title}'. Make it SEO optimized with relevant keywords people might search for like funny video, viral short, comedy meme, and more. Include engaging call-to-actions and end with 5–10 lowercase hashtags with no underscores. The tone should be light, humorous, and viral-friendly."
             }
         ],
         temperature=0.7,
@@ -123,6 +123,16 @@ def upload_video(youtube, file_path, title, description, tags, scheduled_time, p
     
     print(f"Debug: Attempting to schedule video at {scheduled_time}")  # Debugging scheduled time
 
+    # Verify the file exists before attempting upload
+    if not os.path.exists(file_path):
+        print(f"Error: File does not exist: {file_path}")
+        return None
+        
+    # Check if it's a valid video file by extension
+    valid_video_extensions = ['.mp4', '.mov', '.avi', '.wmv', '.flv', '.mkv']
+    if not any(file_path.lower().endswith(ext) for ext in valid_video_extensions):
+        print(f"Warning: File may not be a video file: {file_path}")
+    
     request_body = {
         "snippet": {
             "title": title,
@@ -138,17 +148,67 @@ def upload_video(youtube, file_path, title, description, tags, scheduled_time, p
         }
     }
 
-    media_file = MediaFileUpload(file_path, chunksize=-1, resumable=True)
-    response = youtube.videos().insert(
-        part="snippet,status",
-        body=request_body,
-        media_body=media_file
-    ).execute()
+    upload_successful = False
+    response = None
+    
+    media_file = None
+    try:
+        print(f"Starting upload of file: {file_path}")
+        media_file = MediaFileUpload(file_path, chunksize=-1, resumable=True)
+        
+        response = youtube.videos().insert(
+            part="snippet,status",
+            body=request_body,
+            media_body=media_file
+        ).execute()
 
-    print(f"Video uploaded successfully. Video ID: {response['id']}")
+        print(f"Video uploaded successfully. Video ID: {response['id']}")
+        upload_successful = True
 
-    # Add the video to the specified playlist
-    add_to_playlist(youtube, playlist_name, response["id"])
+        # Add the video to the specified playlist
+        add_to_playlist(youtube, playlist_name, response["id"])
+        
+    except Exception as e:
+        print(f"Error uploading video: {e}")
+        return None
+    
+    finally:
+        # Make sure to close the media file if it was opened
+        if media_file:
+            try:
+                if hasattr(media_file, 'close'):
+                    media_file.close()
+                # For MediaFileUpload, we may need to set it to None to release file handle
+                media_file = None
+            except Exception as e:
+                print(f"Error closing media file: {e}")
+        
+        # Only delete if upload was successful
+        if upload_successful:
+            # Add a short delay to ensure file handles are fully released
+            import time
+            time.sleep(1)
+            
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print(f"Successfully deleted video file: {file_path}")
+                else:
+                    print(f"Warning: Video file not found for deletion: {file_path}")
+            except Exception as e:
+                print(f"Error deleting video file {file_path}: {e}")
+                print("Will try to delete again in 3 seconds...")
+                
+                # Try one more time after a delay
+                time.sleep(3)
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        print(f"Successfully deleted video file on second attempt: {file_path}")
+                except Exception as e2:
+                    print(f"Error on second delete attempt: {e2}")
+    
+    return response
 
 
 def read_last_upload_time():
@@ -174,7 +234,7 @@ def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api
     """
     # Define preferred upload times in local time (every 3 hours throughout the day)
     preferred_hours = [0, 3, 6, 9, 12, 15, 18, 21]  # 12am, 3am, 6am, 9am, 12pm, 3pm, 6pm, 9pm
-    
+    #preferred_hours = [9, 12,18]  #9am, 12pm, 3pm, 6pm, 9pm
     # Get current time in local timezone
     local_tz = datetime.now().astimezone().tzinfo
     now = datetime.now(local_tz)
