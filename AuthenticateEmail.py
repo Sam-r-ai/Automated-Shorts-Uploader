@@ -63,6 +63,7 @@ def check_email(service, sender_email):
         for header in headers:
             if header['name'] == 'Subject':
                 subject = header['value']
+                # If subject is empty, it will be handled in process_email
 
         # Extract body
         body = ""
@@ -90,6 +91,11 @@ def process_email(subject, body, youtube):
     """Extract Instagram URL, download the video, and upload it to YouTube."""
     if body and body.startswith("https://www.instagram.com"):
         print(f"Downloading video from: {body}")
+        
+        # Check if the subject is empty and use a default value
+        if not subject or subject.strip() == "":
+            subject = "#clubmars"
+            print(f"Subject is empty. Using default title: '{subject}'")
         
         # Use the custom_filename parameter to download directly with the subject name
         downloads_folder = r"C:\Users\super\Downloads"

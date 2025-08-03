@@ -36,6 +36,12 @@ def download_instagram_reel(url, output_dir=None, custom_filename=None):
     # Define the final output path if custom filename is provided
     final_output_path = None
     if custom_filename:
+        # Handle special case for #clubmars (default name) by adding a timestamp
+        # to prevent duplicate filenames
+        if custom_filename == "#clubmars":
+            timestamp = int(time.time())
+            custom_filename = f"{custom_filename}_{timestamp}"
+            
         if not custom_filename.endswith('.mp4'):
             custom_filename += '.mp4'
         final_output_path = os.path.join(output_dir, custom_filename)
