@@ -13,7 +13,7 @@ load_dotenv()  # Load environment variables from .env file
 from YoutubeUpload import (  
     upload_video,
     authenticate_youtube,
-    generate_description,
+    #generate_description,
     read_last_upload_time,
     write_last_upload_time,
     calculate_next_upload_time, ) # Import YouTube upload functions
@@ -66,7 +66,7 @@ def check_email(service, sender_email):
 
         # Set default if subject is missing or empty
         if not subject:
-            subject = "#clubmars"
+            subject = "clubmars."
             
         # Extract body
         body = ""
@@ -105,13 +105,14 @@ def process_email(subject, body, youtube):
             print(f"Downloaded video saved as: {downloaded_path}")
             
             # Generate description
-            description = generate_description(subject)
-            description += " funny memes shorts fyp memes I found on discord discord memes daily memes"
-            
+            #description = generate_description(subject)
+            #description += " funny memes shorts fyp memes I found on discord discord memes daily memes"
+            description = "hot videos"
             # Define tags
-            tags = ["clubmarsmemes", "clubmars","shorts", "fyp", "viral", "funny", "trending", "entertainment", "dailymemes", "nostalgia",
-                   "nostalgic", "relatable", "memories", "viralvideos", "virallibrary", "memehistory", "viralhistory", "funnyshorts",
-                   "lmao","memorablevideos", "caughtoncamera", "funnycontent", "dailycomedy", "funnyvideo"]
+            tags = ["clubmarslive", "clubmars","shorts", "#hot","fyp", "viral"]
+                    # "funny", "trending", "entertainment", "dailymemes", "nostalgia",
+                   #"nostalgic", "relatable", "memories", "viralvideos", "virallibrary", "memehistory", "viralhistory", "funnyshorts",
+                   #"lmao","memorablevideos", "caughtoncamera", "funnycontent", "dailycomedy", "funnyvideo"]
             
             playlist_name = "funny memes shorts compilation"
             

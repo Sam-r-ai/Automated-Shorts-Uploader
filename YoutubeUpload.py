@@ -48,7 +48,7 @@ def authenticate_youtube():
         return build("youtube", "v3", credentials=creds)
 
 
-def generate_description(video_title):
+#def generate_description(video_title):
     """Generate a YouTube video description using OpenAI."""
     response = client.chat.completions.create(
         model="gpt-4o-mini",
