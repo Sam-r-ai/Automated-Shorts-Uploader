@@ -10,6 +10,8 @@ from instagram_downloader import download_instagram_reel  # Import new function
 
 load_dotenv()  # Load environment variables from .env file
 
+title_club_mars = True
+
 from YoutubeUpload import (  
     upload_video,
     authenticate_youtube,
@@ -65,8 +67,8 @@ def check_email(service, sender_email):
                 subject = header['value']
 
         # Set default if subject is missing or empty
-        if not subject:
-            subject = "clubmars."
+        if title_club_mars or not subject:
+            subject = "#ClubMarsLive"
             
         # Extract body
         body = ""
