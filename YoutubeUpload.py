@@ -233,9 +233,9 @@ def calculate_next_upload_time(youtube, last_upload_time=None, check_youtube_api
     Uses last_upload_time.txt as the source of truth.
     """
     # Define preferred upload times in local time (every 3 hours throughout the day)
-    #preferred_hours = [0, 3, 6, 9, 12, 15, 18, 21]  # 12am, 3am, 6am, 9am, 12pm, 3pm, 6pm, 9pm
-    #preferred_hours = [9, 12,18]  #9am, 12pm, 3pm, 6pm, 9pm
-    preferred_hours = [9, 13, 17, 21]  #9am, 1pm, 5pm, 9pm
+    preferred_hours = [0, 3, 6, 9, 12, 15, 18, 21]  # 12am, 3am, 6am, 9am, 12pm, 3pm, 6pm, 9pm
+    #preferred_hours = [9, 12, 15, 18, 21]  #9am, 12pm, 3pm, 6pm, 9pm
+    #preferred_hours = [9, 13, 17, 21]  #9am, 1pm, 5pm, 9pm
     # Get current time in local timezone
     local_tz = datetime.now().astimezone().tzinfo
     now = datetime.now(local_tz)

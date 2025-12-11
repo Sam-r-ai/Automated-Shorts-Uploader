@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from instagram_downloader import download_instagram_reel  # Import new function
+from gmail_cleanup_new import authenticate_gmail, delete_emails
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -150,6 +151,7 @@ def process_email(subject, body, youtube):
         print("No valid Instagram URL found in the email body.")
         
 def main():
+    counter = 0
     sender_email = os.getenv("SENDER_EMAIL")  # Use the environment variable from .env file
     gmail_service = authenticate_gmail()
     youtube_service = authenticate_youtube()  # Authenticate YouTube service
@@ -169,5 +171,6 @@ def main():
             print(f"New Email Received - Subject: {subject}")
             process_email(subject, body, youtube_service)
         time.sleep(10)  # Check every 10 seconds
+        
 if __name__ == '__main__':
     main()
