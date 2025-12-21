@@ -69,7 +69,7 @@ def check_email(service, sender_email):
 
         # Set default if subject is missing or empty
         if title_club_mars or not subject:
-            subject = "#ClubMarsLive"
+            subject = "#MilanaKateryna"
             
         # Extract body
         body = ""
@@ -110,7 +110,7 @@ def process_email(subject, body, youtube):
             # Generate description
             #description = generate_description(subject)
             #description += " funny memes shorts fyp memes I found on discord discord memes daily memes"
-            description = "hot videos"
+            description = "subscribe! MilanaKateryna"
             # Define tags
             tags = ["clubmarslive", "clubmars","shorts", "#hot","fyp", "viral"]
                     # "funny", "trending", "entertainment", "dailymemes", "nostalgia",
