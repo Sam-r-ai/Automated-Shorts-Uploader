@@ -16,12 +16,13 @@ from YoutubeUpload import (
     read_last_upload_time,
     write_last_upload_time,
     calculate_next_upload_time,
+    expand_emoji_tokens
 )
 
 load_dotenv()
 
 # Keep your same behavior defaults
-TITLE_CLUB_MARS = True
+TITLE_VIRAL = True
 
 # Gmail scope (same as your file)
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
@@ -74,8 +75,8 @@ def check_email(service, sender_email):
         if header.get("name") == "Subject":
             subject = header.get("value", "")
 
-    if TITLE_CLUB_MARS or not subject:
-        subject = "#MilanaKateryna"
+    if TITLE_VIRAL or not subject:
+        subject = "Viral"
 
     # Extract body (try plain; fallback parse HTML for IG link)
     body = ""
@@ -143,7 +144,10 @@ def process_email(subject, body, youtube):
     play_video_then_wait(downloaded_path)
 
     # ✅ NEW: after exit, ask for name/title
-    typed_title = input("\nName the content: ").strip()
+    typed_title_raw = input("\nName the content: ").strip()
+    typed_title = expand_emoji_tokens(typed_title_raw)
+    print(f"Title preview: {typed_title}")
+
     if not typed_title:
         print("❌ Title cannot be empty. Skipping upload for this video.")
         return

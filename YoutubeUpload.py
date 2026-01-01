@@ -47,6 +47,59 @@ def authenticate_youtube():
         
         return build("youtube", "v3", credentials=creds)
 
+import re
+
+EMOJI_MAP = {
+    "dead": "💀",
+    "laughing": "😂",
+    "crying": "😭",
+    "fire": "🔥",
+    "100": "💯",
+    "eyes": "👀",
+    "sweat": "😅",
+    "clown": "🤡",
+    "shock": "😳",
+    "angry": "😡",
+    "heart": "❤️",
+    "brokenheart": "💔",
+    "check": "✅",
+    "x": "❌",
+    "rocket": "🚀",
+}
+
+# matches ( ... ) blocks
+TOKEN_BLOCK_RE = re.compile(r"\(([^)]+)\)")
+
+# split inside a block on spaces/commas/+ or |
+SPLIT_RE = re.compile(r"[,\s+|]+")
+
+
+def expand_emoji_tokens(text: str) -> str:
+    """
+    Replaces tokens like:
+      '(skull)' -> '💀'
+      '(skull fire)' -> '💀🔥'
+      '(skull, fire + 100)' -> '💀🔥💯'
+    Unknown tokens keep the original '(...)' block unchanged.
+    Case-insensitive.
+    """
+    def repl(match: re.Match) -> str:
+        raw = match.group(1).strip()
+        parts = [p.strip().lower() for p in SPLIT_RE.split(raw) if p.strip()]
+        if not parts:
+            return match.group(0)
+
+        emojis = []
+        for p in parts:
+            if p in EMOJI_MAP:
+                emojis.append(EMOJI_MAP[p])
+            else:
+                # unknown token in this block -> don't replace at all (so you notice typos)
+                return match.group(0)
+
+        return "".join(emojis)
+
+    return TOKEN_BLOCK_RE.sub(repl, text)
 
 def generate_description(video_title: str) -> str:
     """
