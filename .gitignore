@@ -5,3 +5,4 @@ __pycache__
 youtube_token.json
 last_upload_time.txt
 gmail_deletion_token.json
+credentials

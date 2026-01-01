@@ -48,19 +48,64 @@ def authenticate_youtube():
         return build("youtube", "v3", credentials=creds)
 
 
-#def generate_description(video_title):
-    """Generate a YouTube video description using OpenAI."""
+def generate_description(video_title: str) -> str:
+    """
+    Midnight Locker Room description generator:
+    - Gen-Z, late-night locker-room vibe
+    - punchy, scroll-optimized
+    - assumes viewer gets it (no explaining)
+    - boosts retention + shares
+    - ends with 5–10 lowercase hashtags (no underscores)
+    """
+    prompt = f"""
+You are the copywriter for a YouTube Shorts channel called **Midnight Locker Room**.
+
+CHANNEL DNA (do not restate this in the output):
+- Gen-Z, late-night culture hub: sports energy + internet chaos + viral moments
+- Feels like a locker-room group chat after midnight (1–3 AM)
+- Audience: college-aged men (18–23)
+- Content types: NBA/basketball edits (LeBron-style), crashouts, fails/pranks, chaotic POV, meme culture/trending audios, ironic humor, edgy motivation, pop culture (athletes/rappers/polarizing figures)
+- Tone: casual, confident, slightly unhinged. Never corporate. Never explanatory.
+
+WRITING RULES:
+- Do NOT summarize the clip. Prioritize vibe > facts.
+- Assume the viewer already gets it. Avoid explaining the joke.
+- Keep it short, punchy, scroll-optimized.
+- Use Gen-Z rhythm/slang lightly (don’t overdo it).
+- Add a quick call-to-action that fits the vibe (comment/share/tag a friend).
+- Include 1–2 short lines max before hashtags (overall keep concise).
+- End with 5–10 lowercase hashtags with NO underscores. Mix broad + niche (sports/memes/lockerroom vibe).
+
+OUTPUT FORMAT (exact):
+Line 1: hook (max 90 characters)
+Line 2: punchy follow-up / CTA (max 120 characters)
+Line 3: hashtags only
+
+VIDEO TITLE:
+{video_title}
+""".strip()
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {
-                "role": "user",
-                "content": f"Write a compelling and engaging YouTube Shorts description for a comedy video titled: '{video_title}'. Make it SEO optimized with relevant keywords people might search for like funny video, viral short, comedy meme, and more. Include engaging call-to-actions and end with 5–10 lowercase hashtags with no underscores. The tone should be light, humorous, and viral-friendly."
-            }
+            {"role": "system", "content": "You write viral, high-retention YouTube Shorts descriptions in a specific channel voice. Follow the format exactly."},
+            {"role": "user", "content": prompt},
         ],
-        temperature=0.7,
+        temperature=0.85,
     )
-    return response.choices[0].message.content.strip()
+
+    text = response.choices[0].message.content.strip()
+
+    # Optional cleanup: ensure hashtags are on last line and are lowercase/no underscores
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if len(lines) < 3:
+        return text  # keep as-is if model didn’t comply fully
+
+    # Force last line hashtags cleanup
+    hashtags = lines[-1].replace("_", "").lower()
+    lines[-1] = hashtags
+    return "\n".join(lines[:2] + [lines[-1]])
+
 
 
 def add_to_playlist(youtube, playlist_name, video_id):

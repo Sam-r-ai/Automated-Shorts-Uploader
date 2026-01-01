@@ -112,12 +112,12 @@ def process_email(subject, body, youtube):
             #description += " funny memes shorts fyp memes I found on discord discord memes daily memes"
             description = "subscribe! MilanaKateryna"
             # Define tags
-            tags = ["clubmarslive", "clubmars","shorts", "#hot","fyp", "viral"]
+            tags = ["midnightlockerroom", "shorts", "culture", "collegehumor"]
                     # "funny", "trending", "entertainment", "dailymemes", "nostalgia",
                    #"nostalgic", "relatable", "memories", "viralvideos", "virallibrary", "memehistory", "viralhistory", "funnyshorts",
                    #"lmao","memorablevideos", "caughtoncamera", "funnycontent", "dailycomedy", "funnyvideo"]
             
-            playlist_name = "funny memes shorts compilation"
+            playlist_name = "funny shorts compilation 2025"
             
             # Read last upload time from file
             last_upload_time = read_last_upload_time()
