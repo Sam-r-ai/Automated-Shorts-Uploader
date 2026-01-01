@@ -51,8 +51,9 @@ import re
 
 EMOJI_MAP = {
     "dead": "💀",
-    "laughing": "😂",
-    "crying": "😭",
+    "rose": "🥀",
+    "laugh": "😂",
+    "cry": "😭",
     "fire": "🔥",
     "100": "💯",
     "eyes": "👀",
