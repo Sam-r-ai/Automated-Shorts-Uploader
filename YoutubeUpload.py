@@ -53,6 +53,9 @@ EMOJI_MAP = {
     "dead": "💀",
     "rose": "🥀",
     "laugh": "😂",
+    "prayer": "🙏",
+    "smh": "🤦",
+    "basketball": "🏀",
     "cry": "😭",
     "fire": "🔥",
     "100": "💯",
@@ -286,7 +289,7 @@ def upload_video(youtube, file_path, title, description, tags, scheduled_time, p
         if upload_successful:
             # Add a short delay to ensure file handles are fully released
             import time
-            time.sleep(1)
+            time.sleep(7)
             
             try:
                 if os.path.exists(file_path):

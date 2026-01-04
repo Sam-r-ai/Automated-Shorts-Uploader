@@ -159,8 +159,8 @@ def process_email(subject, body, youtube):
     # description = your_ai_edit_description(typed_title, description)
 
     #description = "subscribe! MilanaKateryna"  # keep your current hardcoded default
-    tags = ["midnightlockerroom", "shorts", "culture", "collegehumor"]
-    playlist_name = "funny shorts compilation 2025"
+    tags = ["midnightlockerroom", "shorts", "culture", "college", "humor"]
+    playlist_name = "college culture compilation 2026"
 
     # Read last upload time from file
     last_upload_time = read_last_upload_time()
