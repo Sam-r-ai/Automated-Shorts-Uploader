@@ -160,8 +160,8 @@ def process_email(gmail_service, msg_id, subject, body, youtube):  # CHANGED
 
     description = generate_description(typed_title) + "\n\nsubscribe! Midnightlockerroom"
 
-    tags = ["midnightlockerroom", "shorts", "culture", "college"]
-    playlist_name = "collegecompilation 2026"
+    tags = ["midnightlockerroom", "shorts", "culture", "college", "humor"]
+    playlist_name = "college culture compilation 2026"
 
     # Read last upload time from file
     last_upload_time = read_last_upload_time()

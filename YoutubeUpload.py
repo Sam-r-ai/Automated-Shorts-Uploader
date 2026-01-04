@@ -52,6 +52,7 @@ import re
 EMOJI_MAP = {
     "dead": "💀",
     "rose": "🥀",
+    "flower": "🥀",
     "laugh": "😂",
     "prayer": "🙏",
     "smh": "🤦",
