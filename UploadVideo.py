@@ -52,6 +52,12 @@ def authenticate_gmail():
         return build("gmail", "v1", credentials=creds)
 
 
+def trash_email(service, msg_id: str):
+    """Move one specific email to Trash (recoverable)."""
+    service.users().messages().trash(userId="me", id=msg_id).execute()
+    print(f"🗑️ Trashed email: {msg_id}")
+
+
 def check_email(service, sender_email):
     """Check for new unread emails from a specific sender."""
     results = service.users().messages().list(
@@ -62,7 +68,7 @@ def check_email(service, sender_email):
     messages = results.get("messages", [])
     if not messages:
         print("No new emails.")
-        return None, None
+        return None, None, None  # CHANGED
 
     msg_id = messages[0]["id"]
     message = service.users().messages().get(userId="me", id=msg_id).execute()
@@ -106,7 +112,7 @@ def check_email(service, sender_email):
         body={"removeLabelIds": ["UNREAD"]}
     ).execute()
 
-    return subject, body
+    return msg_id, subject, body  # CHANGED
 
 
 def play_video_then_wait(video_path: str):
@@ -121,7 +127,7 @@ def play_video_then_wait(video_path: str):
     input("Press ENTER after you close the video window...")
 
 
-def process_email(subject, body, youtube):
+def process_email(gmail_service, msg_id, subject, body, youtube):  # CHANGED
     """Extract Instagram URL, download the video, play it, then prompt for title and upload."""
     if not (body and body.startswith("https://www.instagram.com")):
         print("No valid Instagram URL found in the email body.")
@@ -140,10 +146,10 @@ def process_email(subject, body, youtube):
 
     print(f"Downloaded video saved as: {downloaded_path}")
 
-    # ✅ NEW: play video first
+    # play video first
     play_video_then_wait(downloaded_path)
 
-    # ✅ NEW: after exit, ask for name/title
+    # after exit, ask for name/title
     typed_title_raw = input("\nName the content: ").strip()
     typed_title = expand_emoji_tokens(typed_title_raw)
     print(f"Title preview: {typed_title}")
@@ -152,15 +158,10 @@ def process_email(subject, body, youtube):
         print("❌ Title cannot be empty. Skipping upload for this video.")
         return
 
-    # Description (plug in your AI logic here)
-    # If you want the AI editor based on typed_title, do it here.
-    # Example:
     description = generate_description(typed_title) + "\n\nsubscribe! Midnightlockerroom"
-    # description = your_ai_edit_description(typed_title, description)
 
-    #description = "subscribe! MilanaKateryna"  # keep your current hardcoded default
-    tags = ["midnightlockerroom", "shorts", "culture", "college", "humor"]
-    playlist_name = "college culture compilation 2026"
+    tags = ["midnightlockerroom", "shorts", "culture", "college"]
+    playlist_name = "collegecompilation 2026"
 
     # Read last upload time from file
     last_upload_time = read_last_upload_time()
@@ -180,7 +181,7 @@ def process_email(subject, body, youtube):
         print(f"Using fallback time: {fallback_time}")
 
     # Upload video to YouTube using the typed title
-    upload_video(
+    response = upload_video(  # CHANGED (capture response)
         youtube,
         downloaded_path,
         typed_title,
@@ -190,9 +191,19 @@ def process_email(subject, body, youtube):
         playlist_name
     )
 
+    if not response:
+        print("❌ Upload failed. Not deleting email.")
+        return
+
     # Update the last upload time (store in local time for readability)
     next_local_time = next_upload_time.astimezone(local_tz)
     write_last_upload_time(next_local_time)
+
+    # ✅ Delete email only after upload succeeded AND the file is gone
+    if not os.path.exists(downloaded_path):
+        trash_email(gmail_service, msg_id)
+    else:
+        print("⚠️ Upload succeeded but file still exists, so email was NOT deleted.")
 
     print("Video uploaded successfully!")
 
@@ -215,10 +226,10 @@ def main():
     print("Monitoring for emails...")
 
     while True:
-        subject, body = check_email(gmail_service, sender_email)
-        if subject and body:
+        msg_id, subject, body = check_email(gmail_service, sender_email)  # CHANGED
+        if msg_id and subject and body:
             print(f"New Email Received - Subject: {subject}")
-            process_email(subject, body, youtube_service)
+            process_email(gmail_service, msg_id, subject, body, youtube_service)  # CHANGED
         time.sleep(10)
 
 
