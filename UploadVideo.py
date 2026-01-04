@@ -57,6 +57,13 @@ def trash_email(service, msg_id: str):
     service.users().messages().trash(userId="me", id=msg_id).execute()
     print(f"🗑️ Trashed email: {msg_id}")
 
+def safe_delete_file(path: str):
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+            print(f"🧹 Deleted local video: {path}")
+    except Exception as e:
+        print(f"⚠️ Could not delete file {path}: {e}")
 
 def check_email(service, sender_email):
     """Check for new unread emails from a specific sender."""
@@ -150,13 +157,22 @@ def process_email(gmail_service, msg_id, subject, body, youtube):  # CHANGED
     play_video_then_wait(downloaded_path)
 
     # after exit, ask for name/title
-    typed_title_raw = input("\nName the content: ").strip()
+    typed_title_raw = input("\nName the content (or type 'delete' to skip): ").strip()
+
+    # If user wants to skip this clip entirely:
+    if typed_title_raw.lower() == "delete":
+        print("🗑️ Skipping: deleting video + trashing email...")
+        safe_delete_file(downloaded_path)
+        trash_email(gmail_service, msg_id)
+        return  # move on to next email
+
     typed_title = expand_emoji_tokens(typed_title_raw)
     print(f"Title preview: {typed_title}")
 
     if not typed_title:
-        print("❌ Title cannot be empty. Skipping upload for this video.")
-        return
+        print("❌ Title cannot be empty. Defaulting title to subscribe")
+        typed_title = "subscribe #midnightlockerroom"
+
 
     description = generate_description(typed_title) + "\n\nsubscribe! Midnightlockerroom"
 
