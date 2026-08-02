@@ -1,4 +1,73 @@
 # Automated-Shorts-Uploader
+
+## Channel authorization (start here)
+
+This repo is the machine's single home for YouTube credentials. Other projects
+(ClipForge, Conductor) borrow this venv and its tokens rather than keeping their
+own.
+
+**Double-click these** — no shell required:
+
+| File | What it does |
+|---|---|
+| `authorize-channel.cmd` | Authorize one channel (opens a browser) |
+| `check-channels.cmd` | Which channels are authorized, and is each token alive |
+
+From a shell, note the syntax: Windows PowerShell 5.1 has **no `&&` operator**
+(it is a parser error) and needs `.\` before a relative executable, so use `;`
+and the leading dot-slash:
+
+```powershell
+cd C:\Users\super\Documents\GitHub\Automated-Shorts-Uploader; .\.venv\Scripts\python.exe channel_auth.py list
+```
+
+The subcommands are `add`, `list`, `refresh`, `remove <slug>`.
+
+> The `.cmd` files must stay **CRLF with plain ASCII**. Written with LF endings
+> or a stray em-dash, `cmd` mis-parses them and emits `'m' is not recognized`
+> before doing anything useful.
+
+**One token per channel.** A YouTube token is bound to the channel chosen at
+Google's consent screen; `onBehalfOfContentOwner` is for CMS partners, not for
+someone with several Brand Accounts. Run `add` once per channel and pick the
+right Brand Account each time — a video cannot be moved between channels
+afterwards. Tokens land in `tokens/<slug>.json`, filed under the channel
+`channels.list(mine=True)` reports rather than under whatever you called it.
+
+**Why tokens kept dying.** Two independent rules; the first is what actually bit
+this project.
+
+*Testing-mode expiry (7 days).* The `automated-shorts-upload` OAuth consent
+screen sat in **Testing** with External user type from creation until
+2026-08-02, and in Testing every refresh token expires after a week. It hid
+itself because `token_manager.refresh_token()` catches the failure and calls
+`create_new_token()`, which **re-runs the browser consent flow** — so
+`youtube_token.json` kept getting rewritten and looked like one long-lived
+credential while really re-prompting every seven days. That silent loop was the
+"why do I keep authorizing this" problem.
+
+Resolved by **Audience → Publish app** (done 2026-08-02, status now *In
+production*, still External, not submitted for verification). Only tokens minted
+after publishing are long-lived, so re-authorize once.
+
+*Idle expiry (6 months).* Separately, Google drops a refresh token unused for six
+months. `refresh` prevents that — Conductor runs it weekly, and `list` warns once
+a token passes 120 days.
+
+`channel_auth.py` deliberately does **not** re-run consent on a failed refresh.
+It reports `expired` and makes you run `add` on purpose, so this can never hide
+again.
+
+**At consent you will see "Google hasn't verified this app"** — click *Advanced*,
+then *Go to …*. That is permanent without submitting for verification and is fine
+here. The OAuth user cap of 100 distinct accounts applies over the project's
+entire lifetime and cannot be reset.
+
+The legacy single `youtube_token.json` is folded into `tokens/` automatically on
+first use, so an existing one-channel setup keeps working.
+
+---
+
 Send email of link to video and it gets automatically uploaded to my shorts channel
 
 This project demonstrates how to use the Gmail API to authenticate and monitor emails programmatically. It includes setting up the Gmail API, authenticating, and fetching emails from a specific sender.

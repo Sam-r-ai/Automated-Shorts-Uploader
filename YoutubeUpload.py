@@ -12,8 +12,19 @@ from openai import OpenAI
 # Load environment variables
 load_dotenv()
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Descriptions are written by Claude on the Max subscription, reached through
+# Axon (the BRAIN repo) on 127.0.0.1:11435, which speaks the OpenAI wire format
+# at /v1. The base URL defaults to Axon rather than being read from .env alone:
+# if it silently fell back to api.openai.com, every upload would bill a metered
+# API key instead of the subscription. Set OPENAI_BASE_URL to override.
+AXON_OPENAI_URL = "http://127.0.0.1:11435/v1"
+
+client = OpenAI(
+    # Axon ignores the key (it authenticates via the Claude CLI's OAuth), but
+    # the SDK requires a non-empty one.
+    api_key=os.getenv("OPENAI_API_KEY") or "axon-local",
+    base_url=os.getenv("OPENAI_BASE_URL", AXON_OPENAI_URL),
+)
 
 # Constants
 SCOPES = [
@@ -157,14 +168,23 @@ VIDEO TITLE:
 {video_title}
 """.strip()
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You write viral, high-retention YouTube Shorts descriptions in a specific channel voice. Follow the format exactly."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.85,
-    )
+    try:
+        response = client.chat.completions.create(
+            # axon/deep = Claude Opus, axon/fast = Sonnet. This call sends no
+            # response_format or tools, so it reaches the Claude leg intact.
+            model=os.getenv("SHORTS_DESC_MODEL", "axon/deep"),
+            messages=[
+                {"role": "system", "content": "You write viral, high-retention YouTube Shorts descriptions in a specific channel voice. Follow the format exactly."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.85,
+        )
+    except Exception as e:
+        # By the time we get here the video is downloaded and the source email
+        # is already marked read, so crashing loses the upload. A plain
+        # description is a far better outcome than an aborted run.
+        print(f"[desc] description model unavailable ({e}); using a static description")
+        return "subscribe for more\n\n#midnightlockerroom #shorts #fyp"
 
     text = response.choices[0].message.content.strip()
 
