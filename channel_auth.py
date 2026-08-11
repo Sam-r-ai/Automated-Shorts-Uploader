@@ -175,8 +175,16 @@ def cmd_add(args) -> int:
               "from Google Cloud Console first")
         return 1
 
+    have = sorted(p.stem for p in TOKEN_DIR.glob("*.json")) if TOKEN_DIR.is_dir() else []
+    if have:
+        print(f"Already authorized: {', '.join(have)}")
     print("A browser will open. Two things matter on that screen:")
-    print("  1. Sign in with the Google account that owns the channel.")
+    print("  1. Pick the Google account that owns the channel you want.")
+    if args.account:
+        print(f"     (suggesting {args.account} — confirm it is really that one)")
+    elif have:
+        print("     Your browser is probably still signed in as the LAST account you")
+        print("     used, so choose deliberately — 'Use another account' if needed.")
     print("  2. If it offers a channel or Brand Account list, pick the RIGHT one —")
     print("     that choice is what binds this token, and it cannot be changed later.\n")
 
@@ -184,9 +192,34 @@ def cmd_add(args) -> int:
     # offline + consent guarantees a refresh token comes back. Without the
     # explicit prompt, re-authorizing an already-granted app returns an access
     # token only, and the result looks fine until it expires an hour later.
-    creds = flow.run_local_server(port=0, access_type="offline", prompt="consent")
+    #
+    # select_account forces the account chooser every time. Without it Google
+    # silently reuses whichever account the browser is already signed in as —
+    # which, when authorizing a SECOND channel, quietly re-authorizes the first
+    # one instead. That failure is invisible until you read the channel name.
+    extra = {"login_hint": args.account} if args.account else {}
+    creds = flow.run_local_server(
+        port=0, access_type="offline", prompt="select_account consent", **extra
+    )
 
     info = _identify(creds)
+
+    # The most likely mistake when adding a SECOND channel is authorizing the
+    # first one again, because the browser was still signed in as that account.
+    # It is silent otherwise — you just get a second token for a channel you
+    # already had.
+    for existing in (TOKEN_DIR.glob("*.json") if TOKEN_DIR.is_dir() else []):
+        try:
+            meta = json.loads(existing.read_text(encoding="utf-8")).get("_channel", {})
+        except (json.JSONDecodeError, OSError):
+            continue
+        if meta.get("channel_id") == info["channel_id"] and existing.stem != (args.name or ""):
+            print(f"\n  NOTE: this is the same channel you already have as "
+                  f"'{existing.stem}' ({meta.get('title')}).")
+            print("  If you meant a different channel, sign out of that Google account")
+            print("  (or choose 'Use another account') and run this again.\n")
+            break
+
     slug = args.name or slugify(info["title"])
     p = _write(slug, creds, info)
 
@@ -238,6 +271,33 @@ def cmd_refresh(args) -> int:
     return 1 if bad else 0
 
 
+def cmd_rename(args) -> int:
+    """Change the slug a channel is filed under.
+
+    The default slug comes from the channel TITLE, which is often not what you
+    call it — "Justin Gim Ho Cheung" for a channel everyone knows as @freegimho.
+    The slug is what appears in Conductor's channel dropdown, so it should match
+    your head, not YouTube's.
+    """
+    src = token_path(args.old)
+    if not src.exists():
+        print(f"no token for {args.old!r}")
+        return 1
+    new = slugify(args.new)
+    dst = token_path(new)
+    if dst.exists():
+        print(f"{new!r} already exists — pick another name")
+        return 1
+
+    data = json.loads(src.read_text(encoding="utf-8"))
+    data.setdefault("_channel", {})["slug"] = new
+    dst.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    src.unlink()
+    print(f"{args.old} -> {new}  ({data['_channel'].get('title')})")
+    print("  Update any recipe that referenced the old name.")
+    return 0
+
+
 def cmd_remove(args) -> int:
     p = token_path(args.name)
     if not p.exists():
@@ -276,10 +336,19 @@ def main() -> int:
 
     a = sub.add_parser("add", help="authorize a channel (opens a browser)")
     a.add_argument("--name", help="slug to store it under (default: from the channel title)")
+    a.add_argument("--account", metavar="EMAIL",
+                   help="which Google account to suggest at the chooser, e.g. "
+                        "you@gmail.com. The chooser always appears either way; "
+                        "this just pre-selects, so still read the result.")
     a.set_defaults(fn=cmd_add)
 
     sub.add_parser("list", help="channels and token health").set_defaults(fn=cmd_list)
     sub.add_parser("refresh", help="keep every token warm").set_defaults(fn=cmd_refresh)
+
+    n = sub.add_parser("rename", help="file a channel under a different slug")
+    n.add_argument("old")
+    n.add_argument("new")
+    n.set_defaults(fn=cmd_rename)
 
     r = sub.add_parser("remove", help="delete a stored token")
     r.add_argument("name")

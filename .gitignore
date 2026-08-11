@@ -6,3 +6,10 @@ youtube_token.json
 last_upload_time.txt
 gmail_deletion_token.json
 credentials
+
+# Per-channel OAuth tokens written by channel_auth.py as tokens/<slug>.json.
+# Each one holds a refresh_token AND the client_secret for a real YouTube
+# channel - i.e. standing permission to upload as that channel. The rules
+# above only ever covered the older single-token filenames, so this directory
+# was unignored and one `git add -A` from being published.
+tokens/
